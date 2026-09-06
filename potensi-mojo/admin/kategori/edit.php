@@ -1,0 +1,78 @@
+<?php
+require_once __DIR__ . '/../auth.php';
+
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$error = '';
+$item = null;
+
+if ($pdo && $id) {
+    $stmt = $pdo->prepare('SELECT * FROM kategori WHERE id = ?');
+    $stmt->execute([$id]);
+    $item = $stmt->fetch();
+}
+
+if (!$item) {
+    set_flash('error', 'Data tidak ditemukan.');
+    redirect('index.php');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim((string)($_POST['nama_kategori'] ?? ''));
+    $description = trim((string)($_POST['deskripsi'] ?? ''));
+    if (!verify_csrf($_POST['csrf_token'] ?? null) || $name === '') {
+        $error = 'Silakan lengkapi data terlebih dahulu. Nama kategori wajib diisi.';
+    } else {
+        try {
+            $stmt = $pdo->prepare('UPDATE kategori SET nama_kategori = ?, deskripsi = ? WHERE id = ?');
+            $stmt->execute([$name, $description ?: null, $id]);
+            set_flash('success', 'Data berhasil diperbarui.');
+            redirect('index.php');
+        } catch (PDOException $exception) {
+            $error = 'Kategori tidak dapat diperbarui. Pastikan nama tidak duplikat.';
+        }
+    }
+}
+?>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ubah Kategori - Ruang Mojo Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="admin-body">
+<main class="form-page">
+  <div class="breadcrumb"><a href="index.php">&larr; Kembali ke Kategori</a></div>
+  <h1>Ubah Kategori</h1>
+  <p class="section-desc">Ubah nama kategori atau perbarui deskripsi pengelompokan.</p>
+
+  <?php if ($error): ?>
+    <div class="alert alert-error"><?= e($error) ?></div>
+  <?php endif; ?>
+
+  <form class="admin-form" method="post">
+    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+    
+    <label>
+      Nama Kategori *
+      <input name="nama_kategori" required maxlength="100" value="<?= e($_POST['nama_kategori'] ?? $item['nama_kategori']) ?>">
+    </label>
+
+    <label>
+      Deskripsi Singkat Kategori
+      <textarea name="deskripsi" rows="4"><?= e($_POST['deskripsi'] ?? $item['deskripsi']) ?></textarea>
+    </label>
+
+    <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap;">
+      <button class="btn btn-primary" type="submit">Simpan Perubahan</button>
+      <a class="btn" href="index.php" style="background: #E2D8CB; color: #3B2B20;">Batal</a>
+    </div>
+  </form>
+</main>
+<script src="../../assets/js/script.js"></script>
+</body>
+</html>
